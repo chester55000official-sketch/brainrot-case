@@ -40,7 +40,7 @@
         background-size: contain;
         background-repeat: no-repeat;
         background-position: center;
-        background-image: url('coin.png'); /* Имя твоего файла */
+        background-image: url('coin.png');
         margin-left: 4px;
         filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
     }
@@ -230,7 +230,26 @@
         font-size: 13px; color: var(--text-muted); margin-top: 6px; text-transform: lowercase;
     }
 
-    .upgrade-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 25px; }
+    .upgrade-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 15px; }
+    
+    /* Переключатель быстрой прокрутки */
+    .fast-toggle-wrap {
+        display: flex; align-items: center; justify-content: center; gap: 10px;
+        margin-bottom: 25px; cursor: pointer; user-select: none;
+    }
+    .fast-toggle-wrap input { display: none; }
+    .fast-toggle-label {
+        display: flex; align-items: center; gap: 8px;
+        background: #111116; border: 1px solid #2a2a33; padding: 8px 16px;
+        border-radius: 30px; font-size: 14px; font-weight: 600;
+        color: var(--text-muted); transition: all 0.3s;
+    }
+    .fast-toggle-wrap input:checked + .fast-toggle-label {
+        background: rgba(255, 221, 0, 0.1); border-color: #ffdd00; color: #ffdd00;
+        box-shadow: 0 0 15px rgba(255, 221, 0, 0.2);
+    }
+    .fast-toggle-label span { font-size: 16px; }
+
     .btn-secondary {
         background: #222; color: var(--text); border: 1px solid #333; padding: 10px 18px;
         border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;
@@ -464,6 +483,14 @@
                             <div class="wheel-chance-desc" id="wheelDesc">выбери предметы</div>
                         </div>
                     </div>
+                </div>
+
+                <!-- Переключатель скорости -->
+                <div class="fast-toggle-wrap" onclick="document.getElementById('fastToggle').click()">
+                    <input type="checkbox" id="fastToggle" checked onchange="event.stopPropagation()">
+                    <label class="fast-toggle-label" for="fastToggle">
+                        <span>⚡</span> Быстрая прокрутка
+                    </label>
                 </div>
 
                 <div class="upgrade-actions">
@@ -702,7 +729,7 @@ function openCase(caseId) {
     if (balance < currentCase.price) { alert("Недостаточно средств!"); return; }
 
     balance -= currentCase.price; openedCount++; 
-    balanceDisplay.innerHTML = balance.toLocaleString() + ' <span class="coin-icon"></span>';
+    updateBalanceDisplay();
     
     modal.classList.add('active'); resultText.innerText = ''; modalTitle.innerText = 'Открываем ' + currentCase.name + '...';
 
@@ -987,6 +1014,10 @@ function startUpgrade() {
     document.getElementById('upgradeBtn').disabled = true;
     document.getElementById('upgradeResult').innerText = '';
 
+    // Определяем скорость анимации (1 сек для быстрой, 4 сек для обычной)
+    const isFast = document.getElementById('fastToggle').checked;
+    const duration = isFast ? 1000 : 4000;
+
     // 1. Определяем, куда визуально должна приехать стрелка (от 0 до 360)
     let finalAnglePct;
     if (Math.random() * 100 < pct) {
@@ -999,24 +1030,19 @@ function startUpgrade() {
     const finalAngleDeg = (finalAnglePct / 100) * 360;
 
     // 2. Вычисляем финальный угол с учётом оборотов
-    // Текущий угол может быть больше 360 (после прошлых прокруток)
-    // Нам нужно, чтобы он увеличился на несколько полных оборотов + пришёл в finalAngleDeg
     const startAngle = currentAngle;
     
-    // Нормализуем текущий угол, чтобы знать, где мы находимся в пределах одного круга
     let currentNorm = startAngle % 360;
     if (currentNorm < 0) currentNorm += 360;
 
-    // Вычисляем, на сколько градусов нужно повернуть от текущего положения до финального
     let delta = finalAngleDeg - currentNorm;
-    if (delta < 0) delta += 360; // Идём всегда по часовой стрелке
+    if (delta < 0) delta += 360; 
 
-    // Добавляем обороты: 4-6 полных кругов
-    const turns = 4 + Math.floor(Math.random() * 3);
+    // Добавляем обороты (если быстро - меньше оборотов, чтобы не мелькало слишком сильно)
+    const turns = isFast ? 3 : 5;
     const totalDelta = turns * 360 + delta;
     const endAngle = startAngle + totalDelta;
 
-    const duration = 4000;
     const startTime = performance.now();
     
     function animateArrow(time) {
@@ -1037,14 +1063,10 @@ function startUpgrade() {
             currentAngle = endAngle;
             drawWheel();
             
-            // 3. Проверяем результат НА ОСНОВЕ ФИНАЛЬНОГО УГЛА
-            // Так как визуал и логика теперь завязаны на одно и то же число, бага не будет.
+            // 3. Проверяем результат
             const normalizedFinal = currentAngle % 360;
             const finalPct = (normalizedFinal / 360) * 100;
             
-            // Сравниваем с шансом. Из-за погрешностей округления используем небольшой допуск.
-            // Если финальный процент меньше или равен pct (шансу) -> выигрыш.
-            // Но так как мы выбирали finalAnglePct строго внутри зон, можно доверять.
             const success = finalPct <= pct; 
             
             const resultEl = document.getElementById('upgradeResult');
@@ -1125,6 +1147,10 @@ function renderProfile() {
     }
 }
 
+function updateBalanceDisplay() {
+    balanceDisplay.innerHTML = balance.toLocaleString() + ' <span class="coin-icon"></span>';
+}
+
 /* ============================================================
    11. ИНИЦИАЛИЗАЦИЯ
    ============================================================ */
@@ -1142,11 +1168,6 @@ window.addEventListener('load', function () {
     for (let i = 0; i < 3; i++) spawnFakeWin();
     scheduleFakeWin();
 });
-
-// Функция для обновления баланса с картинкой
-function updateBalanceDisplay() {
-    balanceDisplay.innerHTML = balance.toLocaleString() + ' <span class="coin-icon"></span>';
-}
 </script>
 </body>
 </html>
