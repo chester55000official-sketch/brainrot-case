@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brainrot Case — Открывай брейнротов, собирай коллекцию</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+    :root {
+        --bg-color: #0a0a0c;
+        --card-bg: #16161a;
+        --accent: #ff0055;
+        --accent-glow: #ff0055aa;
+        --text: #ffffff;
+        --text-muted: #888899;
+        --success: #00ff88;
+        --rare: #00f0ff;
+        --tg: #229ED9;
+        --win: #00e676;
+        --lose: #ff1744;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+
+    body {
+        background-color: var(--bg-color);
+        color: var(--text);
+        overflow-x: hidden;
+        background-image:
+            radial-gradient(circle at 10% 20%, rgba(255, 0, 85, 0.1) 0%, transparent 20%),
+            radial-gradient(circle at 90% 80%, rgba(0, 255, 136, 0.05) 0%, transparent 20%);
+    }
+
+    /* ---------- Иконка валюты ---------- */
+    .coin-icon {
+        display: inline-block;
+        width: 1.2em;
+        height: 1.2em;
+        vertical-align: middle;
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        background-image: url('coin.png'); /* Имя твоего файла */
+        margin-left: 4px;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    }
+
+    /* ---------- Шапка ---------- */
+    header {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 20px 40px; background: rgba(10, 10, 12, 0.85);
+        backdrop-filter: blur(10px); border-bottom: 1px solid #222;
+        position: sticky; top: 0; z-index: 100;
+    }
+    .header-left { display: flex; align-items: center; gap: 15px; }
+    .burger {
+        display: flex; flex-direction: column; justify-content: center; gap: 5px;
+        width: 40px; height: 40px; background: #1c1c22; border: 1px solid #333;
+        border-radius: 8px; cursor: pointer; padding: 10px;
+        transition: background 0.2s, border-color 0.2s; user-select: none;
+    }
+    .burger:hover { background: #24242c; border-color: var(--accent); }
+    .burger span { display: block; height: 3px; background: var(--text); border-radius: 2px; transition: background 0.2s; }
+    .burger:hover span { background: var(--accent); }
+
+    .dropdown {
+        position: absolute; top: 75px; left: 40px; background: var(--card-bg);
+        border: 1px solid #333; border-radius: 12px; min-width: 220px; padding: 8px;
+        display: none; flex-direction: column; gap: 4px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.6); z-index: 200; animation: dropIn 0.2s ease;
+    }
+    .dropdown.open { display: flex; }
+    @keyframes dropIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+
+    .dropdown-item {
+        display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+        border-radius: 8px; cursor: pointer; color: var(--text-muted);
+        font-weight: 600; font-size: 15px; transition: background 0.2s, color 0.2s;
+        border: none; background: transparent; width: 100%; text-align: left;
+    }
+    .dropdown-item:hover { background: #24242c; color: var(--text); }
+    .dropdown-item.active { background: rgba(255, 0, 85, 0.15); color: var(--accent); }
+    .dropdown-item .d-icon { font-size: 18px; }
+    .dropdown-item .soon {
+        margin-left: auto; font-size: 10px; color: var(--text-muted);
+        background: #222; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;
+    }
+
+    .logo {
+        font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;
+        background: linear-gradient(90deg, #fff, var(--accent));
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        cursor: pointer; user-select: none;
+    }
+    .balance {
+        background: #222; padding: 8px 20px; border-radius: 8px; font-weight: bold;
+        color: var(--success); border: 1px solid #333; display: flex; align-items: center; gap: 5px;
+    }
+
+    /* ---------- Live ---------- */
+    .live-section { max-width: 1200px; margin: 20px auto 0; padding: 0 20px; }
+    .live-header {
+        display: flex; align-items: center; gap: 10px; font-size: 14px;
+        text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);
+        margin-bottom: 10px; font-weight: bold;
+    }
+    .live-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: pulse 1.2s infinite; }
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(255,0,85,0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(255,0,85,0); }
+        100% { box-shadow: 0 0 0 0 rgba(255,0,85,0); }
+    }
+    .live-count {
+        margin-left: auto; background: #222; padding: 2px 10px; border-radius: 20px;
+        font-size: 12px; color: var(--success);
+    }
+    .live-feed { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: thin; }
+    .live-feed::-webkit-scrollbar { height: 6px; }
+    .live-feed::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    .live-item {
+        flex-shrink: 0; width: 150px; background: var(--card-bg); border: 1px solid #333;
+        border-radius: 10px; padding: 10px; text-align: center; animation: slideIn 0.5s ease;
+        border-top: 3px solid #444;
+    }
+    .live-item.rare { border-top-color: var(--rare); box-shadow: 0 0 15px rgba(0,240,255,0.15); }
+    .live-item.legendary { border-top-color: var(--accent); box-shadow: 0 0 20px var(--accent-glow); }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(-10px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    .live-item .user { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .live-item .icon { font-size: 26px; }
+    .live-item .name { font-size: 12px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .live-item .price { font-size: 11px; color: var(--success); margin-top: 2px; display: flex; align-items: center; justify-content: center; gap: 2px; }
+
+    /* ---------- Основной контент ---------- */
+    main { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+    h1 { text-align: center; font-size: 48px; margin-bottom: 10px; text-shadow: 0 0 20px var(--accent-glow); }
+    .subtitle { text-align: center; color: var(--text-muted); margin-bottom: 40px; font-size: 18px; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ---------- Кейсы ---------- */
+    .cases-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
+    .case-card {
+        background: var(--card-bg); border-radius: 16px; padding: 20px; text-align: center;
+        border: 1px solid #333; transition: transform 0.3s, box-shadow 0.3s; position: relative; overflow: hidden;
+    }
+    .case-card:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(255, 0, 85, 0.2); border-color: var(--accent); }
+    .case-image { width: 100%; height: 200px; object-fit: contain; margin-bottom: 20px; filter: drop-shadow(0 0 15px rgba(0,0,0,0.5)); }
+    .case-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+    .case-price { color: var(--accent); font-weight: bold; font-size: 20px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+    .btn-open {
+        background: var(--accent); color: white; border: none; padding: 15px 40px;
+        border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer;
+        width: 100%; transition: background 0.3s; text-transform: uppercase;
+    }
+    .btn-open:hover { background: #ff3377; box-shadow: 0 0 20px var(--accent-glow); }
+
+    /* ---------- Заглушки ---------- */
+    .placeholder {
+        text-align: center; padding: 80px 20px; background: var(--card-bg);
+        border: 1px dashed #333; border-radius: 16px;
+    }
+    .placeholder .big-icon { font-size: 64px; margin-bottom: 20px; }
+    .placeholder h2 { font-size: 28px; margin-bottom: 10px; }
+    .placeholder p { color: var(--text-muted); max-width: 500px; margin: 0 auto; line-height: 1.6; }
+    .placeholder .tag {
+        display: inline-block; margin-top: 20px; background: rgba(255,0,85,0.15);
+        color: var(--accent); padding: 6px 16px; border-radius: 20px; font-size: 13px;
+        font-weight: bold; text-transform: uppercase;
+    }
+
+    /* ---------- Апгрейд ---------- */
+    .upgrade-wrap { max-width: 700px; margin: 0 auto; }
+    .upgrade-panel {
+        background: var(--card-bg); border: 1px solid #333; border-radius: 20px;
+        padding: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); text-align: center;
+    }
+
+    .upgrade-slots {
+        display: grid; grid-template-columns: 1fr auto 1fr; gap: 15px; align-items: center;
+        margin-bottom: 30px;
+    }
+    .slot-col { text-align: center; }
+    .slot-label {
+        font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+        color: var(--text-muted); margin-bottom: 10px; font-weight: bold;
+    }
+    .slot-box {
+        background: #111116; border: 2px dashed #2a2a33; border-radius: 16px;
+        min-height: 150px; display: flex; flex-direction: column; align-items: center;
+        justify-content: center; padding: 15px; transition: border-color 0.2s;
+    }
+    .slot-box.filled { border-style: solid; border-color: #444; }
+    .slot-box.target { border-color: rgba(255,0,85,0.4); }
+    .slot-icon { font-size: 42px; margin-bottom: 8px; }
+    .slot-name { font-weight: bold; font-size: 14px; word-break: break-word; }
+    .slot-price { font-size: 12px; color: var(--success); margin-top: 4px; display: flex; align-items: center; justify-content: center; gap: 2px; }
+    .slot-empty { color: var(--text-muted); font-size: 13px; }
+    .slot-arrow { font-size: 28px; color: var(--accent); }
+
+    /* --- Круговая рулетка --- */
+    .wheel-section { margin: 30px 0; position: relative; display: inline-block; }
+    .wheel-container {
+        width: 260px; height: 260px; border-radius: 50%;
+        position: relative; background: #0d0d10;
+        box-shadow: 0 0 30px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
+        margin: 0 auto;
+    }
+    .wheel-canvas {
+        width: 100%; height: 100%; border-radius: 50%; display: block;
+    }
+    /* Стрелка-указатель снизу */
+    .wheel-arrow {
+        position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);
+        width: 0; height: 0;
+        border-left: 14px solid transparent;
+        border-right: 14px solid transparent;
+        border-bottom: 22px solid #fff;
+        z-index: 10;
+        filter: drop-shadow(0 0 6px rgba(255,255,255,0.8));
+    }
+    .wheel-center-text {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        text-align: center; pointer-events: none; width: 100%;
+    }
+    .wheel-pct {
+        font-size: 38px; font-weight: 900; line-height: 1;
+        color: #fff; text-shadow: 0 0 15px rgba(255,255,255,0.2);
+    }
+    .wheel-chance-desc {
+        font-size: 13px; color: var(--text-muted); margin-top: 6px; text-transform: lowercase;
+    }
+
+    .upgrade-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 25px; }
+    .btn-secondary {
+        background: #222; color: var(--text); border: 1px solid #333; padding: 10px 18px;
+        border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;
+        transition: background 0.2s, border-color 0.2s;
+    }
+    .btn-secondary:hover { background: #2a2a33; border-color: var(--accent); }
+    .btn-upgrade {
+        background: var(--accent); color: #fff; border: none; padding: 16px 40px;
+        border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer;
+        text-transform: uppercase; transition: background 0.3s, box-shadow 0.3s;
+    }
+    .btn-upgrade:hover { background: #ff3377; box-shadow: 0 0 25px var(--accent-glow); }
+    .btn-upgrade:disabled { background: #333; color: #666; cursor: not-allowed; box-shadow: none; }
+
+    .upgrade-result {
+        text-align: center; font-size: 20px; font-weight: bold; min-height: 34px;
+        margin-top: 10px; margin-bottom: 20px;
+    }
+
+    /* ---------- Инвентарь ---------- */
+    .inventory-title {
+        font-size: 13px; text-transform: uppercase; letter-spacing: 1px;
+        color: var(--text-muted); margin-bottom: 12px; font-weight: bold;
+        text-align: left;
+    }
+    .inventory-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 25px; justify-content: center; }
+    .inv-item {
+        width: 95px; background: #111116; border: 1px solid #2a2a33; border-radius: 10px;
+        padding: 10px 6px; text-align: center; cursor: pointer;
+        transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+    .inv-item:hover { border-color: var(--accent); transform: translateY(-3px); }
+    .inv-item.selected { border-color: var(--accent); box-shadow: 0 0 15px var(--accent-glow); }
+    .inv-item .inv-icon { font-size: 26px; }
+    .inv-item .inv-name { font-size: 10px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); }
+    .inv-item .inv-price { font-size: 10px; color: var(--success); margin-top: 2px; display: flex; align-items: center; justify-content: center; gap: 1px; }
+
+    .targets-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; justify-content: center; }
+
+    /* ---------- Профиль ---------- */
+    .profile-wrap { max-width: 520px; margin: 0 auto; }
+    .profile-card {
+        background: var(--card-bg); border: 1px solid #333; border-radius: 20px;
+        padding: 40px 30px; text-align: center; position: relative; overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+    .profile-card::before {
+        content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+        background: radial-gradient(circle at 50% 0%, rgba(255,0,85,0.15), transparent 50%);
+        pointer-events: none;
+    }
+    .avatar-wrap { position: relative; width: 130px; height: 130px; margin: 0 auto 20px; z-index: 1; }
+    .profile-avatar {
+        width: 130px; height: 130px; border-radius: 50%; object-fit: cover;
+        border: 4px solid var(--accent); box-shadow: 0 0 30px var(--accent-glow);
+        display: block; background: #222;
+    }
+    .avatar-placeholder {
+        width: 130px; height: 130px; border-radius: 50%; border: 4px solid var(--accent);
+        box-shadow: 0 0 30px var(--accent-glow); display: flex; align-items: center;
+        justify-content: center; font-size: 56px; background: #222;
+    }
+    .profile-status {
+        display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+        color: var(--success); background: rgba(0,255,136,0.1); padding: 4px 12px;
+        border-radius: 20px; margin-bottom: 16px; position: relative; z-index: 1;
+    }
+    .profile-status::before {
+        content: ''; width: 7px; height: 7px; background: var(--success);
+        border-radius: 50%; box-shadow: 0 0 8px var(--success);
+    }
+    .profile-name { font-size: 28px; font-weight: 900; margin-bottom: 6px; position: relative; z-index: 1; word-break: break-word; }
+    .profile-tag { font-size: 16px; color: var(--tg); font-weight: 600; margin-bottom: 24px; position: relative; z-index: 1; word-break: break-word; }
+    .profile-id { font-size: 12px; color: var(--text-muted); margin-bottom: 24px; position: relative; z-index: 1; }
+    .profile-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; position: relative; z-index: 1; }
+    .stat-box { background: #111116; border: 1px solid #2a2a33; border-radius: 12px; padding: 14px 10px; }
+    .stat-box .s-value { font-size: 20px; font-weight: 900; color: var(--accent); }
+    .stat-box .s-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+    .profile-note {
+        margin-top: 16px; font-size: 12px; color: var(--text-muted); line-height: 1.5;
+        position: relative; z-index: 1; padding: 12px; background: rgba(255,170,0,0.08);
+        border: 1px solid rgba(255,170,0,0.25); border-radius: 10px;
+    }
+    .profile-note.warn { color: #ffaa00; }
+
+    /* ---------- Модалка кейсов ---------- */
+    .modal-overlay {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center;
+        align-items: center; flex-direction: column;
+    }
+    .modal-overlay.active { display: flex; }
+    .roulette-container {
+        width: 90%; max-width: 800px; background: var(--card-bg); padding: 40px;
+        border-radius: 20px; border: 2px solid var(--accent); text-align: center; position: relative;
+    }
+    .roulette-window {
+        width: 100%; height: 120px; background: #000; border-radius: 10px;
+        overflow: hidden; position: relative; margin: 30px 0; border: 1px solid #444;
+    }
+    .roulette-items {
+        display: flex; position: absolute; left: 0; top: 0; height: 100%;
+        transition: transform 5s cubic-bezier(0.2, 1, 0.3, 1); align-items: center;
+    }
+    .roulette-item {
+        width: 120px; height: 100px; margin: 0 10px; background: #222; border-radius: 8px;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        flex-shrink: 0; border-bottom: 4px solid transparent; font-size: 12px; color: #aaa;
+    }
+    .roulette-item.rare { border-color: var(--rare); }
+    .roulette-item.legendary { border-color: var(--accent); background: #2a0a14; color: #fff; }
+    .roulette-item .r-icon { font-size: 24px; margin-bottom: 5px; }
+    .roulette-pointer {
+        position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+        width: 4px; height: 100%; background: var(--accent); z-index: 10;
+        box-shadow: 0 0 10px var(--accent);
+    }
+    .roulette-pointer::before {
+        content: ''; position: absolute; top: -10px; left: -6px;
+        border-left: 8px solid transparent; border-right: 8px solid transparent;
+        border-top: 10px solid var(--accent);
+    }
+    .result-text { font-size: 24px; font-weight: bold; margin-top: 20px; min-height: 40px; }
+    .close-modal {
+        margin-top: 20px; background: transparent; border: 1px solid #555;
+        color: #888; padding: 10px 20px; border-radius: 5px; cursor: pointer;
+    }
+    .close-modal:hover { color: #fff; border-color: #fff; }
+
+    footer {
+        text-align: center; padding: 40px; color: var(--text-muted);
+        font-size: 14px; border-top: 1px solid #222; margin-top: 60px;
+    }
+
+    @media (max-width: 700px) {
+        .upgrade-slots { grid-template-columns: 1fr; }
+        .slot-arrow { transform: rotate(90deg); margin: 5px 0; }
+        .wheel-container { width: 220px; height: 220px; }
+        .wheel-pct { font-size: 32px; }
+    }
+
+    @media (max-width: 600px) {
+        h1 { font-size: 32px; }
+        .roulette-item { width: 80px; }
+        .roulette-item .r-icon { font-size: 18px; }
+        header { padding: 15px 20px; }
+        .logo { font-size: 18px; }
+        .dropdown { left: 15px; top: 68px; }
+        .avatar-wrap, .profile-avatar, .avatar-placeholder { width: 110px; height: 110px; }
+        .avatar-placeholder { font-size: 48px; }
+        .upgrade-panel { padding: 18px; }
+    }
+</style>
+</head>
+<body>
+
+<header>
+    <div class="header-left">
+        <div class="burger" onclick="toggleMenu(event)" id="burgerBtn" title="Меню">
+            <span></span><span></span><span></span>
+        </div>
+        <div class="logo">Brainrot Case</div>
+    </div>
+    <div class="balance" id="balanceDisplay">
+        10 000 <span class="coin-icon"></span>
+    </div>
+</header>
+
+<nav class="dropdown" id="dropdown">
+    <button class="dropdown-item active" data-page="cases" onclick="switchPage('cases')">
+        <span class="d-icon">📦</span> Кейсы
+    </button>
+    <button class="dropdown-item" data-page="upgrade" onclick="switchPage('upgrade')">
+        <span class="d-icon">⬆️</span> Апгрейд
+    </button>
+    <button class="dropdown-item" data-page="bonus" onclick="switchPage('bonus')">
+        <span class="d-icon">🎁</span> Бонус
+        <span class="soon">скоро</span>
+    </button>
+    <button class="dropdown-item" data-page="profile" onclick="switchPage('profile')">
+        <span class="d-icon">👤</span> Профиль
+    </button>
+</nav>
+
+<section class="live-section">
+    <div class="live-header">
+        <span class="live-dot"></span>
+        <span>LIVE — последние выигрыши</span>
+        <span class="live-count" id="liveCount">0</span>
+    </div>
+    <div class="live-feed" id="liveFeed"></div>
+</section>
+
+<main>
+    <!-- Кейсы -->
+    <div class="page active" id="page-cases">
+        <h1>Открывай Брейнрот</h1>
+        <p class="subtitle">Самые сочные мем-персонажи Roblox в одном месте</p>
+        <div class="cases-grid" id="casesContainer"></div>
+    </div>
+
+    <!-- Апгрейд -->
+    <div class="page" id="page-upgrade">
+        <h1>Апгрейд</h1>
+        <p class="subtitle">Обменяй предмет на более редкий. Попадёшь в зелёное — заберёшь цель.</p>
+        <div class="upgrade-wrap">
+            <div class="upgrade-panel">
+                <div class="upgrade-slots">
+                    <div class="slot-col">
+                        <div class="slot-label">Твой предмет</div>
+                        <div class="slot-box" id="yourSlot">
+                            <div class="slot-empty">Выбери ↓</div>
+                        </div>
+                    </div>
+                    <div class="slot-arrow">→</div>
+                    <div class="slot-col">
+                        <div class="slot-label">Цель</div>
+                        <div class="slot-box target" id="targetSlot">
+                            <div class="slot-empty">Выбери ↓</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Круговая рулетка -->
+                <div class="wheel-section">
+                    <div class="wheel-container" id="wheelContainer">
+                        <canvas class="wheel-canvas" id="wheelCanvas" width="260" height="260"></canvas>
+                        <div class="wheel-arrow"></div>
+                        <div class="wheel-center-text">
+                            <div class="wheel-pct" id="wheelPct">—</div>
+                            <div class="wheel-chance-desc" id="wheelDesc">выбери предметы</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="upgrade-actions">
+                    <button class="btn-secondary" onclick="clearUpgrade()">Сбросить</button>
+                    <button class="btn-upgrade" id="upgradeBtn" onclick="startUpgrade()" disabled>Апгрейд</button>
+                </div>
+
+                <div class="upgrade-result" id="upgradeResult"></div>
+
+                <div class="inventory-title" style="margin-top:20px;">Инвентарь</div>
+                <div class="inventory-grid" id="inventoryGrid">
+                    <div class="slot-empty">Инвентарь пуст. Открой кейс, чтобы получить предмет.</div>
+                </div>
+
+                <div class="inventory-title">Выбери цель (любой предмет)</div>
+                <div class="targets-grid" id="targetsGrid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Бонус -->
+    <div class="page" id="page-bonus">
+        <div class="placeholder">
+            <div class="big-icon">🎁</div>
+            <h2>Ежедневный бонус</h2>
+            <p>Заходи каждый день и получай бесплатные монеты. Серия входов подряд увеличивает награду.</p>
+            <span class="tag">Скоро</span>
+        </div>
+    </div>
+
+    <!-- Профиль -->
+    <div class="page" id="page-profile">
+        <div class="profile-wrap">
+            <div class="profile-card">
+                <div class="avatar-wrap" id="avatarWrap"></div>
+                <div class="profile-status" id="profileStatus">В сети</div>
+                <div class="profile-name" id="profileName">Гость</div>
+                <div class="profile-tag" id="profileTag">@unknown</div>
+                <div class="profile-id" id="profileId"></div>
+                <div class="profile-stats">
+                    <div class="stat-box">
+                        <div class="s-value" id="profileBalance">0</div>
+                        <div class="s-label">Баланс</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="s-value" id="profileOpened">0</div>
+                        <div class="s-label">Открыто кейсов</div>
+                    </div>
+                </div>
+                <div class="profile-note" id="profileNote">Профиль подгружается из Telegram при открытии через бота.</div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer>
+    &copy; 2026 Brainrot Case. Демо-версия. Все персонажи — фанатская стилизация, совпадения случайны.
+</footer>
+
+<!-- Модалка рулетки кейсов -->
+<div class="modal-overlay" id="rouletteModal">
+    <div class="roulette-container">
+        <h2 id="modalTitle">Открытие кейса...</h2>
+        <div class="roulette-window">
+            <div class="roulette-pointer"></div>
+            <div class="roulette-items" id="rouletteItems"></div>
+        </div>
+        <div class="result-text" id="resultText"></div>
+        <button class="close-modal" onclick="closeRoulette()">Закрыть</button>
+    </div>
+</div>
+
+<script>
+/* ============================================================
+   1. ДАННЫЕ
+   ============================================================ */
+const ALL_ITEMS = [
+    { name: "Tralalero Tralala", rarity: "common", icon: "🦈", price: 300 },
+    { name: "Bombardiro Crocodilo", rarity: "rare", icon: "🐊", price: 900 },
+    { name: "Tung Tung Tung Sahur", rarity: "legendary", icon: "🥁", price: 3000 },
+    { name: "Cameraman", rarity: "common", icon: "📷", price: 400 },
+    { name: "Skibidi Toilet", rarity: "rare", icon: "🚽", price: 1100 },
+    { name: "Titan Speakerman", rarity: "legendary", icon: "🔊", price: 3500 },
+    { name: "Sad Banana Cat", rarity: "common", icon: "🍌", price: 500 },
+    { name: "Lirili Larila", rarity: "rare", icon: "🌵", price: 1300 },
+    { name: "Brr Brr Patapim", rarity: "legendary", icon: "🌳", price: 4000 },
+    { name: "Cappuccino Assassino", rarity: "rare", icon: "☕", price: 1500 },
+    { name: "Boneca Ambalabu", rarity: "common", icon: "🐸", price: 250 },
+    { name: "Frigo Camelo", rarity: "rare", icon: "🐪", price: 1700 },
+    { name: "La Vaca Saturno", rarity: "legendary", icon: "🐄", price: 5000 },
+    { name: "Trippi Troppi", rarity: "common", icon: "🦐", price: 350 }
+];
+
+const CASES = [
+    {
+        id: 1, name: "Italian Brainrot Case", price: 500,
+        image: "https://cdn-icons-png.flaticon.com/512/2662/2662503.png",
+        itemNames: ["Tralalero Tralala", "Bombardiro Crocodilo", "Tung Tung Tung Sahur"]
+    },
+    {
+        id: 2, name: "Skibidi Brainrot Case", price: 1200,
+        image: "https://cdn-icons-png.flaticon.com/512/3616/3616215.png",
+        itemNames: ["Cameraman", "Skibidi Toilet", "Titan Speakerman"]
+    },
+    {
+        id: 3, name: "Meme Lord Case", price: 2500,
+        image: "https://cdn-icons-png.flaticon.com/512/3075/3075977.png",
+        itemNames: ["Sad Banana Cat", "Lirili Larila", "Brr Brr Patapim"]
+    }
+];
+
+function itemByName(name) {
+    return ALL_ITEMS.find(function (i) { return i.name === name; });
+}
+
+/* ============================================================
+   2. СОСТОЯНИЕ
+   ============================================================ */
+let balance = 10000;
+let openedCount = 0;
+let currentUser = null;
+let isInTelegram = false;
+
+let inventory = [];
+let selectedYour = null;
+let selectedTarget = null;
+let isUpgrading = false;
+
+let currentAngle = 0; // Угол стрелки в градусах (0 = верх)
+
+/* ============================================================
+   3. DOM
+   ============================================================ */
+const balanceDisplay = document.getElementById('balanceDisplay');
+const casesContainer = document.getElementById('casesContainer');
+const modal = document.getElementById('rouletteModal');
+const rouletteItems = document.getElementById('rouletteItems');
+const resultText = document.getElementById('resultText');
+const modalTitle = document.getElementById('modalTitle');
+const liveFeed = document.getElementById('liveFeed');
+const liveCountEl = document.getElementById('liveCount');
+let liveCount = 0;
+const MAX_LIVE_ITEMS = 30;
+
+const canvas = document.getElementById('wheelCanvas');
+const ctx = canvas.getContext('2d');
+
+/* ============================================================
+   4. TELEGRAM
+   ============================================================ */
+function initTelegram() {
+    const tg = window.Telegram && window.Telegram.WebApp;
+    if (!tg) {
+        isInTelegram = false;
+        currentUser = { id: 0, first_name: "Гость", last_name: "", username: "guest", photo_url: null };
+        return;
+    }
+    tg.ready(); tg.expand();
+    tg.setHeaderColor('#0a0a0c'); tg.setBackgroundColor('#0a0a0c');
+
+    const u = tg.initDataUnsafe && tg.initDataUnsafe.user;
+    if (u) {
+        isInTelegram = true;
+        currentUser = { id: u.id, first_name: u.first_name || "Игрок", last_name: u.last_name || "", username: u.username || "", photo_url: u.photo_url || null };
+    } else {
+        isInTelegram = false;
+        currentUser = { id: 0, first_name: "Гость", last_name: "", username: "guest", photo_url: null };
+    }
+}
+
+/* ============================================================
+   5. МЕНЮ
+   ============================================================ */
+const dropdown = document.getElementById('dropdown');
+function toggleMenu(event) { if (event) event.stopPropagation(); dropdown.classList.toggle('open'); }
+document.addEventListener('click', function (e) {
+    if (!dropdown.contains(e.target) && !e.target.closest('.burger')) dropdown.classList.remove('open');
+});
+function switchPage(page) {
+    document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
+    const target = document.getElementById('page-' + page);
+    if (target) target.classList.add('active');
+    document.querySelectorAll('.dropdown-item').forEach(function (item) {
+        item.classList.toggle('active', item.dataset.page === page);
+    });
+    dropdown.classList.remove('open');
+    if (page === 'profile') renderProfile();
+    if (page === 'upgrade') { renderUpgrade(); drawWheel(); }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ============================================================
+   6. LIVE
+   ============================================================ */
+const liveChannel = ('BroadcastChannel' in window) ? new BroadcastChannel('brainrot-live') : null;
+const fakeUsers = ['xX_SigmaBoi_Xx', 'TungTungFan2013', 'RobloxRizzler', 'SkibidiSigma', 'ItalianBrainrotFan', 'NoobMaster69'];
+function randomUser() { return fakeUsers[Math.floor(Math.random() * fakeUsers.length)]; }
+function addLiveItem(user, item, price) {
+    const el = document.createElement('div');
+    el.className = 'live-item ' + (item.rarity === 'legendary' ? 'legendary' : (item.rarity === 'rare' ? 'rare' : ''));
+    el.innerHTML = '<div class="user">' + user + '</div><div class="icon">' + item.icon + '</div><div class="name">' + item.name + '</div><div class="price">' + price.toLocaleString() + ' <span class="coin-icon"></span></div>';
+    liveFeed.prepend(el);
+    while (liveFeed.children.length > MAX_LIVE_ITEMS) liveFeed.lastChild.remove();
+    liveCount++; liveCountEl.textContent = liveCount;
+}
+function broadcastWin(user, item, price) { if (liveChannel) liveChannel.postMessage({ type: 'win', user: user, item: item, price: price }); }
+if (liveChannel) liveChannel.onmessage = function (event) { const d = event.data; if (d && d.type === 'win') addLiveItem(d.user, d.item, d.price); };
+function spawnFakeWin() {
+    const item = ALL_ITEMS[Math.floor(Math.random() * ALL_ITEMS.length)];
+    const u = randomUser();
+    addLiveItem(u, item, item.price);
+    broadcastWin(u, item, item.price);
+}
+function scheduleFakeWin() {
+    const delay = Math.random() * 4000 + 3000;
+    setTimeout(function () { spawnFakeWin(); scheduleFakeWin(); }, delay);
+}
+
+/* ============================================================
+   7. КЕЙСЫ
+   ============================================================ */
+function renderCases() {
+    casesContainer.innerHTML = CASES.map(function (c) {
+        return '<div class="case-card">' +
+            '<img src="' + c.image + '" alt="' + c.name + '" class="case-image" onerror="this.style.display=\'none\'">' +
+            '<div class="case-title">' + c.name + '</div>' +
+            '<div class="case-price">' + c.price + ' <span class="coin-icon"></span></div>' +
+            '<button class="btn-open" onclick="openCase(' + c.id + ')">Открыть</button>' +
+        '</div>';
+    }).join('');
+}
+
+function openCase(caseId) {
+    const currentCase = CASES.find(function (c) { return c.id === caseId; });
+    if (!currentCase) return;
+    if (balance < currentCase.price) { alert("Недостаточно средств!"); return; }
+
+    balance -= currentCase.price; openedCount++; 
+    balanceDisplay.innerHTML = balance.toLocaleString() + ' <span class="coin-icon"></span>';
+    
+    modal.classList.add('active'); resultText.innerText = ''; modalTitle.innerText = 'Открываем ' + currentCase.name + '...';
+
+    const winIndex = Math.floor(Math.random() * 50) + 30;
+    const winningItem = itemByName(currentCase.itemNames[Math.floor(Math.random() * currentCase.itemNames.length)]);
+
+    let itemsHTML = '';
+    for (let i = 0; i < 60; i++) {
+        const item = (i === winIndex) ? winningItem : itemByName(currentCase.itemNames[Math.floor(Math.random() * currentCase.itemNames.length)]);
+        const rarityClass = item.rarity === 'legendary' ? 'legendary' : (item.rarity === 'rare' ? 'rare' : '');
+        itemsHTML += '<div class="roulette-item ' + rarityClass + '"><div class="r-icon">' + item.icon + '</div><div>' + item.name + '</div></div>';
+    }
+    rouletteItems.innerHTML = itemsHTML;
+    rouletteItems.style.transition = 'none';
+    rouletteItems.style.transform = 'translateX(0)';
+
+    setTimeout(function () {
+        rouletteItems.style.transition = 'transform 5s cubic-bezier(0.15, 0.9, 0.3, 1)';
+        const itemWidth = 140;
+        const containerWidth = document.querySelector('.roulette-window').offsetWidth;
+        const centerOffset = containerWidth / 2;
+        const randomOffset = (Math.random() * 40) - 20;
+        const translateX = -(winIndex * itemWidth) + centerOffset - 60 + randomOffset;
+        rouletteItems.style.transform = 'translateX(' + translateX + 'px)';
+
+        setTimeout(function () {
+            resultText.innerText = 'Вы выиграли: ' + winningItem.name + ' ' + winningItem.icon;
+            resultText.style.color = winningItem.rarity === 'legendary' ? '#ff0055' : (winningItem.rarity === 'rare' ? '#00f0ff' : '#fff');
+            addToInventory(winningItem);
+            addLiveItem('Вы', winningItem, winningItem.price);
+            broadcastWin('Вы', winningItem, winningItem.price);
+        }, 5000);
+    }, 100);
+}
+function closeRoulette() { modal.classList.remove('active'); }
+
+/* ============================================================
+   8. ИНВЕНТАРЬ
+   ============================================================ */
+function addToInventory(item) {
+    inventory.push({ name: item.name, rarity: item.rarity, icon: item.icon, price: item.price, uid: Date.now() + Math.random() });
+    renderInventory();
+}
+
+function renderInventory() {
+    const grid = document.getElementById('inventoryGrid');
+    if (!grid) return;
+    if (inventory.length === 0) {
+        grid.innerHTML = '<div class="slot-empty">Инвентарь пуст. Открой кейс, чтобы получить предмет.</div>';
+        return;
+    }
+    grid.innerHTML = inventory.map(function (it) {
+        const sel = (selectedYour && selectedYour.uid === it.uid) ? 'selected' : '';
+        return '<div class="inv-item ' + sel + '" onclick="selectYour(\'' + it.uid + '\')">' +
+            '<div class="inv-icon">' + it.icon + '</div>' +
+            '<div class="inv-name">' + it.name + '</div>' +
+            '<div class="inv-price">' + it.price.toLocaleString() + ' <span class="coin-icon"></span></div>' +
+        '</div>';
+    }).join('');
+}
+
+function selectYour(uid) {
+    if (isUpgrading) return;
+    selectedYour = inventory.find(function (i) { return String(i.uid) === uid; }) || null;
+    document.getElementById('upgradeResult').innerText = '';
+    renderInventory();
+    renderUpgrade();
+}
+
+/* ============================================================
+   9. АПГРЕЙД + КРУГОВАЯ РУЛЕТКА
+   ============================================================ */
+function renderUpgrade() {
+    const yourSlot = document.getElementById('yourSlot');
+    if (selectedYour) {
+        yourSlot.className = 'slot-box filled';
+        yourSlot.innerHTML = '<div class="slot-icon">' + selectedYour.icon + '</div><div class="slot-name">' + selectedYour.name + '</div><div class="slot-price">' + selectedYour.price.toLocaleString() + ' <span class="coin-icon"></span></div>';
+    } else {
+        yourSlot.className = 'slot-box';
+        yourSlot.innerHTML = '<div class="slot-empty">Выбери ↓</div>';
+    }
+
+    const targetSlot = document.getElementById('targetSlot');
+    if (selectedTarget) {
+        targetSlot.className = 'slot-box filled target';
+        targetSlot.innerHTML = '<div class="slot-icon">' + selectedTarget.icon + '</div><div class="slot-name">' + selectedTarget.name + '</div><div class="slot-price">' + selectedTarget.price.toLocaleString() + ' <span class="coin-icon"></span></div>';
+    } else {
+        targetSlot.className = 'slot-box target';
+        targetSlot.innerHTML = '<div class="slot-empty">Выбери ↓</div>';
+    }
+
+    const targetsGrid = document.getElementById('targetsGrid');
+    targetsGrid.innerHTML = ALL_ITEMS.map(function (it) {
+        const sel = (selectedTarget && selectedTarget.name === it.name) ? 'selected' : '';
+        return '<div class="inv-item ' + sel + '" onclick="selectTarget(\'' + it.name + '\')">' +
+            '<div class="inv-icon">' + it.icon + '</div>' +
+            '<div class="inv-name">' + it.name + '</div>' +
+            '<div class="inv-price">' + it.price.toLocaleString() + ' <span class="coin-icon"></span></div>' +
+        '</div>';
+    }).join('');
+
+    updateWheelText();
+    // Перерисовываем колесо только если не идёт анимация
+    if (!isUpgrading) drawWheel();
+
+    const btn = document.getElementById('upgradeBtn');
+    btn.disabled = !(selectedYour && selectedTarget) || isUpgrading;
+    renderInventory();
+}
+
+function selectTarget(name) {
+    if (isUpgrading) return;
+    selectedTarget = ALL_ITEMS.find(function (i) { return i.name === name; }) || null;
+    document.getElementById('upgradeResult').innerText = '';
+    renderUpgrade();
+}
+
+function calcChance() {
+    if (!selectedYour || !selectedTarget) return null;
+    let raw = (selectedYour.price / selectedTarget.price) * 0.7;
+    let pct = Math.round(raw * 100 * 100) / 100;
+    pct = Math.max(5, Math.min(90, pct));
+    return pct;
+}
+
+function updateWheelText() {
+    const pct = calcChance();
+    const pctEl = document.getElementById('wheelPct');
+    const descEl = document.getElementById('wheelDesc');
+
+    if (pct === null) {
+        pctEl.textContent = '—';
+        descEl.textContent = 'выбери предметы';
+        pctEl.style.color = '#fff';
+        return;
+    }
+
+    pctEl.textContent = pct.toFixed(2) + '%';
+    
+    if (pct < 15) { descEl.textContent = 'очень низкий шанс'; pctEl.style.color = '#ff4444'; }
+    else if (pct < 35) { descEl.textContent = 'низкий шанс'; pctEl.style.color = '#ffaa00'; }
+    else if (pct < 65) { descEl.textContent = 'средний шанс'; pctEl.style.color = '#ffdd00'; }
+    else if (pct < 85) { descEl.textContent = 'высокий шанс'; pctEl.style.color = '#88ff00'; }
+    else { descEl.textContent = 'отличный шанс'; pctEl.style.color = '#00ff88'; }
+}
+
+/* Рисуем колесо */
+function drawWheel() {
+    const w = canvas.width;
+    const h = canvas.height;
+    const cx = w / 2;
+    const cy = h / 2;
+    const radius = Math.min(w, h) / 2 - 10;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Фон
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius + 5, 0, Math.PI * 2);
+    ctx.fillStyle = '#0d0d10';
+    ctx.fill();
+
+    // Внешнее кольцо
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    const pct = calcChance();
+    
+    if (pct === null) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius - 15, 0, Math.PI * 2);
+        ctx.strokeStyle = '#1c1c22';
+        ctx.lineWidth = 25;
+        ctx.stroke();
+        drawTicks(cx, cy, radius - 15, 60, '#222');
+        drawArrow(cx, cy, radius, currentAngle);
+        return;
+    }
+
+    // Успех начинается сверху (-90 градусов) и идёт по часовой
+    const startAngle = -Math.PI / 2;
+    const winAngle = (pct / 100) * Math.PI * 2;
+
+    const ringRadius = radius - 15;
+    const ringWidth = 22;
+
+    // 1. Красный круг (провал) на весь круг
+    ctx.beginPath();
+    ctx.arc(cx, cy, ringRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = '#d50000';
+    ctx.lineWidth = ringWidth;
+    ctx.stroke();
+
+    // 2. Успех (зелёный -> жёлтый -> оранжевый)
+    const winGrad = ctx.createLinearGradient(cx - ringRadius, cy + ringRadius, cx + ringRadius, cy - ringRadius);
+    winGrad.addColorStop(0, '#88ff00');
+    winGrad.addColorStop(0.5, '#ffdd00');
+    winGrad.addColorStop(1, '#ff8800');
+    
+    ctx.beginPath();
+    // Рисуем от startAngle до startAngle + winAngle
+    ctx.arc(cx, cy, ringRadius, startAngle, startAngle + winAngle);
+    ctx.strokeStyle = winGrad;
+    ctx.lineWidth = ringWidth;
+    ctx.stroke();
+
+    // 3. Деления
+    drawTicks(cx, cy, ringRadius, 60, 'rgba(0,0,0,0.3)');
+
+    // 4. Внутренний круг
+    ctx.beginPath();
+    ctx.arc(cx, cy, ringRadius - ringWidth / 2, 0, Math.PI * 2);
+    ctx.fillStyle = '#0d0d10';
+    ctx.fill();
+
+    // 5. Внешняя обводка
+    ctx.beginPath();
+    ctx.arc(cx, cy, ringRadius + ringWidth / 2, 0, Math.PI * 2);
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Стрелка
+    drawArrow(cx, cy, ringRadius, currentAngle);
+}
+
+function drawTicks(cx, cy, radius, count, color) {
+    ctx.save();
+    for (let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2;
+        const x1 = cx + Math.cos(angle) * (radius + 10);
+        const y1 = cy + Math.sin(angle) * (radius + 10);
+        const x2 = cx + Math.cos(angle) * (radius + 15);
+        const y2 = cy + Math.sin(angle) * (radius + 15);
+        
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+
+function drawArrow(cx, cy, radius, angleDeg) {
+    // 0 градусов = верх (12 часов)
+    const rad = (angleDeg - 90) * Math.PI / 180;
+    
+    const arrowRadius = radius + 5;
+    const x = cx + Math.cos(rad) * arrowRadius;
+    const y = cy + Math.sin(rad) * arrowRadius;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rad + Math.PI / 2);
+
+    ctx.beginPath();
+    ctx.moveTo(0, 8);
+    ctx.lineTo(-8, -8);
+    ctx.lineTo(8, -8);
+    ctx.closePath();
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = 'rgba(255,255,255,0.8)';
+    ctx.shadowBlur = 10;
+    ctx.fill();
+    ctx.restore();
+}
+
+/* Запуск апгрейда */
+function startUpgrade() {
+    if (isUpgrading) return;
+    if (!selectedYour || !selectedTarget) return;
+
+    const pct = calcChance();
+    if (pct === null) return;
+
+    isUpgrading = true;
+    document.getElementById('upgradeBtn').disabled = true;
+    document.getElementById('upgradeResult').innerText = '';
+
+    // 1. Определяем, куда визуально должна приехать стрелка (от 0 до 360)
+    let finalAnglePct;
+    if (Math.random() * 100 < pct) {
+        // Успех: стрелка должна встать в диапазон [0, pct)
+        finalAnglePct = Math.random() * pct;
+    } else {
+        // Провал: стрелка должна встать в диапазон [pct, 100)
+        finalAnglePct = pct + Math.random() * (100 - pct);
+    }
+    const finalAngleDeg = (finalAnglePct / 100) * 360;
+
+    // 2. Вычисляем финальный угол с учётом оборотов
+    // Текущий угол может быть больше 360 (после прошлых прокруток)
+    // Нам нужно, чтобы он увеличился на несколько полных оборотов + пришёл в finalAngleDeg
+    const startAngle = currentAngle;
+    
+    // Нормализуем текущий угол, чтобы знать, где мы находимся в пределах одного круга
+    let currentNorm = startAngle % 360;
+    if (currentNorm < 0) currentNorm += 360;
+
+    // Вычисляем, на сколько градусов нужно повернуть от текущего положения до финального
+    let delta = finalAngleDeg - currentNorm;
+    if (delta < 0) delta += 360; // Идём всегда по часовой стрелке
+
+    // Добавляем обороты: 4-6 полных кругов
+    const turns = 4 + Math.floor(Math.random() * 3);
+    const totalDelta = turns * 360 + delta;
+    const endAngle = startAngle + totalDelta;
+
+    const duration = 4000;
+    const startTime = performance.now();
+    
+    function animateArrow(time) {
+        const elapsed = time - startTime;
+        let progress = Math.min(elapsed / duration, 1);
+        
+        // easeOutQuart
+        const easeOut = 1 - Math.pow(1 - progress, 4);
+        
+        currentAngle = startAngle + totalDelta * easeOut;
+        
+        drawWheel();
+        
+        if (progress < 1) {
+            requestAnimationFrame(animateArrow);
+        } else {
+            // Анимация завершена. Ставим точный угол
+            currentAngle = endAngle;
+            drawWheel();
+            
+            // 3. Проверяем результат НА ОСНОВЕ ФИНАЛЬНОГО УГЛА
+            // Так как визуал и логика теперь завязаны на одно и то же число, бага не будет.
+            const normalizedFinal = currentAngle % 360;
+            const finalPct = (normalizedFinal / 360) * 100;
+            
+            // Сравниваем с шансом. Из-за погрешностей округления используем небольшой допуск.
+            // Если финальный процент меньше или равен pct (шансу) -> выигрыш.
+            // Но так как мы выбирали finalAnglePct строго внутри зон, можно доверять.
+            const success = finalPct <= pct; 
+            
+            const resultEl = document.getElementById('upgradeResult');
+            if (success) {
+                inventory = inventory.filter(function (i) { return i.uid !== selectedYour.uid; });
+                addToInventory(selectedTarget);
+
+                resultEl.style.color = '#00ff88';
+                resultEl.innerText = '✅ УСПЕХ! ' + selectedYour.name + ' → ' + selectedTarget.name;
+
+                addLiveItem('Вы (апгрейд)', selectedTarget, selectedTarget.price);
+                broadcastWin('Вы (апгрейд)', selectedTarget, selectedTarget.price);
+            } else {
+                inventory = inventory.filter(function (i) { return i.uid !== selectedYour.uid; });
+
+                resultEl.style.color = '#ff0055';
+                resultEl.innerText = '❌ ПРОВАЛ! ' + selectedYour.name + ' сгорел.';
+            }
+
+            // Сброс
+            selectedYour = null;
+            selectedTarget = null;
+            isUpgrading = false;
+            renderUpgrade();
+        }
+    }
+    
+    requestAnimationFrame(animateArrow);
+}
+
+function clearUpgrade() {
+    if (isUpgrading) return;
+    selectedYour = null;
+    selectedTarget = null;
+    document.getElementById('upgradeResult').innerText = '';
+    renderUpgrade();
+}
+
+/* ============================================================
+   10. ПРОФИЛЬ
+   ============================================================ */
+function renderProfile() {
+    const avatarWrap = document.getElementById('avatarWrap');
+    const nameEl = document.getElementById('profileName');
+    const tagEl = document.getElementById('profileTag');
+    const idEl = document.getElementById('profileId');
+    const noteEl = document.getElementById('profileNote');
+    const statusEl = document.getElementById('profileStatus');
+
+    if (!currentUser) initTelegram();
+
+    avatarWrap.innerHTML = '';
+    if (currentUser.photo_url) {
+        const img = document.createElement('img');
+        img.className = 'profile-avatar';
+        img.src = currentUser.photo_url;
+        img.alt = 'Аватар';
+        img.onerror = function () { avatarWrap.innerHTML = '<div class="avatar-placeholder">👤</div>'; };
+        avatarWrap.appendChild(img);
+    } else {
+        avatarWrap.innerHTML = '<div class="avatar-placeholder">👤</div>';
+    }
+
+    const fullName = (currentUser.first_name + ' ' + currentUser.last_name).trim() || 'Игрок';
+    nameEl.textContent = fullName;
+    tagEl.textContent = currentUser.username ? '@' + currentUser.username : 'без юзернейма';
+    idEl.textContent = currentUser.id ? 'Telegram ID: ' + currentUser.id : '';
+    statusEl.textContent = isInTelegram ? 'В сети (Telegram)' : 'Открыто в браузере';
+    document.getElementById('profileBalance').textContent = balance.toLocaleString();
+    document.getElementById('profileOpened').textContent = openedCount;
+
+    if (isInTelegram) {
+        noteEl.className = 'profile-note';
+        noteEl.textContent = 'Данные загружены из Telegram. Это ваш профиль в боте.';
+    } else {
+        noteEl.className = 'profile-note warn';
+        noteEl.textContent = 'Вы открыли сайт в обычном браузере. Чтобы увидеть свой профиль — откройте сайт через Telegram-бота (Mini App).';
+    }
+}
+
+/* ============================================================
+   11. ИНИЦИАЛИЗАЦИЯ
+   ============================================================ */
+initTelegram();
+renderCases();
+renderProfile();
+renderInventory();
+renderUpgrade();
+updateBalanceDisplay();
+
+setTimeout(() => { drawWheel(); }, 100);
+window.addEventListener('resize', function() { if (!isUpgrading) drawWheel(); });
+
+window.addEventListener('load', function () {
+    for (let i = 0; i < 3; i++) spawnFakeWin();
+    scheduleFakeWin();
+});
+
+// Функция для обновления баланса с картинкой
+function updateBalanceDisplay() {
+    balanceDisplay.innerHTML = balance.toLocaleString() + ' <span class="coin-icon"></span>';
+}
+</script>
+</body>
+</html>
